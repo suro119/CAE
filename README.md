@@ -1,2 +1,3 @@
-# CAE
-Lossy Image Compression with Compressive Autoencoders
+# Lossy Image Compression with Compressive Autoencoders
+
+
