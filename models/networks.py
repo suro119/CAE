@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn import init
 from torch.optim import lr_scheduler
 import torch.nn.functional as F
+import torch.distributions as D
 from torch.autograd import Function
 
 def init_weights(net, init_type, init_gain):
@@ -29,7 +30,7 @@ def init_weights(net, init_type, init_gain):
     net.apply(init_func)  # apply the initialization function <init_func>
 
 
-def init_net(net, init_type, init_gain, gpu_id):
+def init_net(net, init_type='kaiming', init_gain=0.02, gpu_id=None):
     if gpu_id is not None:
         assert(torch.cuda.is_available())
         net.to(gpu_id)
@@ -38,9 +39,11 @@ def init_net(net, init_type, init_gain, gpu_id):
     return net
 
 
-def get_network(model, init_type='kaiming', init_gain=0.02, gpu_id=None, incremental=False):
+def get_network(model, init_type='kaiming', init_gain=0.02, gpu_id=None, incremental=False, quantization='round'):
     if model == 'cae':
-        net = CompressiveAutoencoder(gpu_id, incremental)
+        net = CompressiveAutoencoder(gpu_id, incremental, quantization)
+    elif model == 'test':
+        net = Test(gpu_id, quantization)
     else:
         raise NotImplementedError('Model name \'{}\' not implemented'.format(model))
     return init_net(net, init_type, init_gain, gpu_id)
@@ -61,8 +64,63 @@ def get_recon_loss(name):
         raise NotImplementedError('Loss function \'{}\' not implemented'.format(name))
 
 
+class Test(nn.Module):
+    def __init__(self, gpu_id, quantization):
+        super().__init__()
+        self.downsample1 = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=4, stride=2),
+            nn.LeakyReLU(),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2),
+            nn.LeakyReLU()
+        )
+        self.downsample2 = nn.Conv2d(128, 96, kernel_size=4, stride=2)
+        self.enc_res = nn.Sequential(
+            ResBlock(128),
+            ResBlock(128),
+            ResBlock(128)
+        )
+
+        self.quantize = Quantize(quantization)
+
+        self.upsample1 = nn.ConvTranspose2d(96, 128, kernel_size=4, stride=2)
+        self.upsample2 = nn.Sequential(
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(64, 3, kernel_size=4, stride=2),
+            nn.LeakyReLU()
+        )
+        self.dec_res = nn.Sequential(
+            ResBlock(128),
+            ResBlock(128),
+            ResBlock(128)
+        )
+        self.clamp = Clamp()
+
+    def forward(self, x):
+
+        x = F.pad(x, (7, 7, 7, 7), 'reflect')
+
+        out = self.downsample1(x)
+        out = self.enc_res(out)
+        out = self.downsample2(out)
+
+        code = self.quantize(out)
+    
+        out = self.upsample1(code)
+        out = self.dec_res(out)
+        out = self.upsample2(out)
+        out = self.clamp(out)
+
+        self.unpad_mask = torch.ones(x.size(0), 3, 128, 128)
+        self.unpad_mask = F.pad(self.unpad_mask, (7,7,7,7)).bool()
+        out = out[self.unpad_mask].reshape(x.size(0),3,128,128)
+
+        return {'recon': out, 'code': code}
+
+
+
 class CompressiveAutoencoder(nn.Module):
-    def __init__(self, gpu_id, incremental):
+    def __init__(self, gpu_id, incremental, quantization):
         super().__init__()
         self.downsample1 = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, stride=2),
@@ -77,7 +135,7 @@ class CompressiveAutoencoder(nn.Module):
             ResBlock(128)
         )
 
-        self.round = Round()
+        self.quantize = Quantize(quantization)
 
         self.incremental = incremental
         if self.incremental:
@@ -98,35 +156,35 @@ class CompressiveAutoencoder(nn.Module):
         self.clamp = Clamp()
 
     def forward(self, x):
-        x = F.pad(x, (11, 10, 11, 10), 'reflect')
+        x = F.pad(x, (11, 10, 11, 10))
+        # x = F.pad(x, (11, 10, 11, 10), 'reflect')
 
         # Encoder
         x = self.downsample1(x)
         out = self.enc_res(x)
         out = self.downsample2(out)
-        out = self.round(out)
+        code = self.quantize(out)
 
         # Masking for incremental training
         if self.incremental and self.iters % self.update_freq == 0:
             self.update_mask()
-            out = self.mask * out
+            code = self.mask * code
 
         if self.incremental:
             self.iters += x.size(0)
 
         # Decoder
-        out = self.subpix1(out)
+        out = self.subpix1(code)
         out = self.dec_res(out)
         out = self.subpix2(out)
         out = self.subpix3(out)
-        out = self.clamp(out)
+        out = self.clamp(out)        
 
-        return out
+        return {'recon': out, 'code': code}
 
     def update_mask(self):
         self.mask_idx += 1
         self.mask.view(-1)[self.mask_idx] = 1
-        
 
 
 class ResBlock(nn.Module):
@@ -193,17 +251,39 @@ class RoundFunction(Function):
     @staticmethod
     def backward(ctx, grad_output):
         # Pass gradient straight through
-        return grad_output  # Clone? or nah?
+        return grad_output
+
+class UniformNoiseFunction(Function):
+    '''
+    Autograd function to be applied in the Round layer.
+    '''
+    @staticmethod
+    def forward(ctx, x):
+        out = x + torch.zeros_like(x).uniform_(-0.5,0.5)
+        return out
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Pass gradient straight through
+        return grad_output
 
 
 
-class Round(nn.Module):
+class Quantize(nn.Module):
     '''
     Define the rounding function as defined in the paper. Pass gradient
     through but perform forward rounding.
     '''
-    def __init__(self):
+    def __init__(self, quantization):
         super().__init__()
+        self.quantization = quantization
 
     def forward(self, x):
-        return RoundFunction.apply(x)
+        if self.quantization == 'round' or not self.training:
+            return RoundFunction.apply(x)
+        elif self.quantization == 'noise':
+            return UniformNoiseFunction.apply(x)
+        elif self.quantization == 'none':
+            return x
+        else:
+            raise NotImplementedError('Quantization function {} not implemented'.format(self.quantization))

@@ -69,7 +69,7 @@ if __name__ == '__main__':
             best_val_loss = val_loss
             model.save('best')
             print('saving the best model: epoch %d, iters %d' % (epoch, total_iters))
-        elif epoch % opt.save_epoch_freq == 0:            
+        if epoch % opt.save_epoch_freq == 0:            
             print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
             model.save(epoch)
 

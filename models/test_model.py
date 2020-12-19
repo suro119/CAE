@@ -3,7 +3,7 @@ import torch.nn as nn
 from .base_model import BaseModel
 from . import networks
 
-class CAEModel(BaseModel):
+class TestModel(BaseModel):
     def __init__(self, opt):
         super().__init__(opt)
         

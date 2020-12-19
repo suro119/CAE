@@ -12,9 +12,12 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')
         parser.add_argument('--save_epoch_freq', type=int, default=5, help='frequency of saving checkpoints at the end of epochs')
         parser.add_argument('--continue_train', action='store_true', help='continue training from a checkpoint')
+        parser.add_argument('--override', action='store_true', help='override values for optimizer and scheduler with command line arguments when loading checkpoint')
         parser.add_argument('--phase', type=str, default='train', help='[train | test]')
 
         # Training Parameters
+        parser.add_argument('--entropy_model', type=str, default='gsm', help='entropy model used for entropy (rate) loss')
+        parser.add_argument('--quantization', type=str, default='round', help='type of quantization used during training [round | noise | none]')
         parser.add_argument('--n_epochs', type=int, default=100, help='number of epochs with the initial learning rate')
         parser.add_argument('--loss', type=str, default='MSE', help='type of reconstruction loss to use')
         parser.add_argument('--coeff', type=float, default=1, help='determines the weight of reconstruction loss')
@@ -29,9 +32,7 @@ class TrainOptions(BaseOptions):
 
         # parser.add_argument('--n_epochs_decay', type=int, default=100, help='number of epochs to linearly decay learning rate to zero')
         # parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
-        # parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
         # parser.add_argument('--pool_size', type=int, default=50, help='the size of image buffer that stores previously generated images')
-        # parser.add_argument('--lr_policy', type=str, default='linear', help='learning rate policy. [linear | step | plateau | cosine]')
         # parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
 
         self.isTrain = True

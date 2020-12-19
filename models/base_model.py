@@ -2,6 +2,7 @@ import os
 import torch
 from collections import OrderedDict
 from abc import ABC, abstractmethod
+from utils.misc import mkdir
 
 class BaseModel(ABC):
     def __init__(self, opt):
@@ -11,7 +12,7 @@ class BaseModel(ABC):
         self.gpu_id = opt.gpu_id
         self.device = torch.device('cuda:{}'.format(self.gpu_id)) if self.use_cuda else torch.device('cpu')
         torch.backends.cudnn.benchmark = True
-        self.save_dir = opt.checkpoint_dir
+        self.save_dir = os.path.join(opt.checkpoint_dir, opt.name, 'models')
         self.net_names = []
         self.loss_names = []
         self.optimizers = []
@@ -39,8 +40,10 @@ class BaseModel(ABC):
 
     def setup(self, opt):
         if not self.is_train or opt.continue_train:
-            self.load(opt.epoch)
+            self.load(opt.epoch, opt.override)
         self.print_networks(opt.verbose)
+
+        mkdir(self.save_dir)
 
     
     def train(self):
@@ -65,11 +68,15 @@ class BaseModel(ABC):
     def update_learning_rate(self):
         old_lr = self.optimizers[0].param_groups[0]['lr']
         for scheduler in self.schedulers:
-            print(self.metric)
             scheduler.step(self.metric) # if lr_policy == 'plateau'
 
         new_lr = self.optimizers[0].param_groups[0]['lr']
-        print('learning rate updated from {:.7f} to: {:.7f}'.format(old_lr, new_lr))
+        if new_lr < old_lr:
+            message = 'learning rate updated from {:.7f} to: {:.7f}'.format(old_lr, new_lr)
+            print(message)
+            log_name = os.path.join(self.opt.checkpoint_dir, self.opt.name, 'loss_log.txt')
+            with open(log_name, 'a') as log_file:
+                log_file.write('%s\n' % message)
 
         self.clear_val_losses()
 
@@ -138,12 +145,12 @@ class BaseModel(ABC):
 
         torch.save(checkpoint, save_path)
 
-    def load(self, epoch):
+    def load(self, epoch, override):
         load_filename = '%s.pth' % epoch
         load_path = os.path.join(self.save_dir, load_filename)
         checkpoint = torch.load(load_path, map_location=self.device)
 
-        # Load models
+        # Load model weights
         for name in self.net_names:
             if isinstance(name, str):
                 net = getattr(self, 'net_' + name)
@@ -153,17 +160,19 @@ class BaseModel(ABC):
                 print('loading the model from %s' % load_path)
                 net.load_state_dict(checkpoint[key])
 
-        # Load optimizers
-        for i in range(len(self.optimizers)):
-            optimizer = self.optimizers[i]
-            key = 'optimizer_state_dict_%s' % str(i)
-            optimizer.load_state_dict(checkpoint[key])
+        # Use save optimizers and schedulers only if override is False
+        if not override:
+            # Load optimizers
+            for i in range(len(self.optimizers)):
+                optimizer = self.optimizers[i]
+                key = 'optimizer_state_dict_%s' % str(i)
+                optimizer.load_state_dict(checkpoint[key])
 
-        # Load schedulers
-        for i in range(len(self.schedulers)):
-            scheduler = self.schedulers[i]
-            key = 'scheduler_state_dict_%s' % str(i)
-            scheduler.load_state_dict(checkpoint[key])
+            # Load schedulers
+            for i in range(len(self.schedulers)):
+                scheduler = self.schedulers[i]
+                key = 'scheduler_state_dict_%s' % str(i)
+                scheduler.load_state_dict(checkpoint[key])
 
 
     def print_networks(self, verbose):
