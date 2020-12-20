@@ -16,11 +16,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--phase', type=str, default='train', help='[train | test]')
 
         # Training Parameters
-        parser.add_argument('--entropy_model', type=str, default='gsm', help='entropy model used for entropy (rate) loss')
-        parser.add_argument('--quantization', type=str, default='round', help='type of quantization used during training [round | noise | none]')
         parser.add_argument('--n_epochs', type=int, default=100, help='number of epochs with the initial learning rate')
-        parser.add_argument('--loss', type=str, default='MSE', help='type of reconstruction loss to use')
-        parser.add_argument('--coeff', type=float, default=1, help='determines the weight of reconstruction loss')
         parser.add_argument('--lr', type=float, default=1e-4, help='initial learning rate')
         parser.add_argument('--lr_policy', type=str, default='plateau', help='learning rate policy. [linear | step | plateau | cosine]')
         parser.add_argument('--incremental', action='store_true', help='if set, perform incremental training')

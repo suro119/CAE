@@ -2,7 +2,7 @@ import os
 import torch
 from collections import OrderedDict
 from abc import ABC, abstractmethod
-from utils.misc import mkdir
+from utils.misc_util import mkdir
 
 class BaseModel(ABC):
     def __init__(self, opt):
@@ -18,7 +18,7 @@ class BaseModel(ABC):
         self.optimizers = []
         self.schedulers = []
         self.visual_names = []
-        if opt.lr_policy == 'plateau':
+        if self.is_train and opt.lr_policy == 'plateau':
             self.metric = None  # Only used when ReduceLROnPlateau Scheduler is used
             self.val_losses = None  # Only used when ReduceLROnPlateau Scheduler is used
 

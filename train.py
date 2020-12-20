@@ -2,7 +2,7 @@
 from options.train_options import TrainOptions
 from models import create_model
 from datasets import create_dataset
-from utils.misc import mkdir
+from utils import misc_util
 from utils import image_util
 from utils import print_util
 
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     model = create_model(opt)
     model.setup(opt)
     img_dir = os.path.join(opt.checkpoint_dir, opt.name, 'images')
-    mkdir(img_dir)
+    misc_util.mkdir(img_dir)
 
     total_iters = 0
     losses = model.get_val_losses(val_dataset)
@@ -47,7 +47,7 @@ if __name__ == '__main__':
             model.optimize_parameters()
 
             if total_iters % opt.display_freq == 0:
-                image_util.save_images(opt, epoch, img_dir, model.get_current_visuals())
+                image_util.save_images(epoch, img_dir, model.get_current_visuals())
 
             if total_iters % opt.print_freq == 0:
                 losses = model.get_current_losses()

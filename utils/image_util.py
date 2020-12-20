@@ -21,7 +21,7 @@ def tensor2im(input_image, imtype=np.uint8):
     return image_numpy.astype(imtype)
 
 
-def save_images(opt, epoch, img_dir, visuals, aspect_ratio=1.0):
+def save_images(epoch, img_dir, visuals, aspect_ratio=1.0):
     for label, image in visuals.items():
         image_numpy = tensor2im(image)
         img_path = os.path.join(img_dir, 'epoch%s.%s.png' % (epoch, label))

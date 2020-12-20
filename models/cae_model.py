@@ -30,9 +30,8 @@ class CAEModel(BaseModel):
                 self.metric = None
                 self.val_losses = [[] for _ in range(len(self.loss_names))]
 
-        self.quantization = not self.is_train
-
         self.image = None
+        self.code = None
         self.recon = None
 
 

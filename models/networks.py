@@ -42,8 +42,8 @@ def init_net(net, init_type='kaiming', init_gain=0.02, gpu_id=None):
 def get_network(model, init_type='kaiming', init_gain=0.02, gpu_id=None, incremental=False, quantization='round'):
     if model == 'cae':
         net = CompressiveAutoencoder(gpu_id, incremental, quantization)
-    elif model == 'test':
-        net = Test(gpu_id, quantization)
+    elif model == 'tconv':
+        net = TransposeConvAutoencoder(gpu_id, quantization)
     else:
         raise NotImplementedError('Model name \'{}\' not implemented'.format(model))
     return init_net(net, init_type, init_gain, gpu_id)
@@ -64,7 +64,7 @@ def get_recon_loss(name):
         raise NotImplementedError('Loss function \'{}\' not implemented'.format(name))
 
 
-class Test(nn.Module):
+class TransposeConvAutoencoder(nn.Module):
     def __init__(self, gpu_id, quantization):
         super().__init__()
         self.downsample1 = nn.Sequential(
@@ -279,6 +279,7 @@ class Quantize(nn.Module):
         self.quantization = quantization
 
     def forward(self, x):
+        # Always round if model is in eval mode
         if self.quantization == 'round' or not self.training:
             return RoundFunction.apply(x)
         elif self.quantization == 'noise':
