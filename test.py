@@ -56,7 +56,7 @@ if __name__ == '__main__':
         recon_code = range_coder.decode(len(code), i)  # range coder occasionally deadlocks, rerun if this happens
         recon_code += min_code
         recon_code = np.array(recon_code)
-        error_array = original_code - recon_code
+        error_array = original_code - recon_code 
         code_error = error_array.sum()
 
         # Caculate MSE and MS-SSIM error
