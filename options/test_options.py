@@ -9,8 +9,10 @@ class TestOptions(BaseOptions):
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)  # define shared options
         parser.add_argument('--results_dir', type=str, default='./results/', help='saves results here.')
-        parser.add_argument('--num_test', type=int, default=10, help='how many test images to run')
+        parser.add_argument('--num_test', type=int, default=100, help='how many test images to run')
+        # Hardcode some conflicting options
         parser.set_defaults(phase='test')
         parser.set_defaults(override=True)  # we don't need optimizers and schedulers for testing
+        parser.set_defaults(incremental=False)
         self.is_train = False
         return parser

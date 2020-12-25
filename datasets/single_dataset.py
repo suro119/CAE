@@ -27,7 +27,7 @@ class SingleDataset(BaseDataset):
             i -- an integer index
 
         Returns:
-            dictionary with a single image
+            a single image
         '''
         img = Image.open(self.paths[i]).convert('RGB')
         img = self.transform(img)

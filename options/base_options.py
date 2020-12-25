@@ -16,18 +16,20 @@ class BaseOptions():
         parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints', help='models saved here')
 
         # Model Parameters
-        parser.add_argument('--model', type=str, default='tconv', help='type of compression model [cae | tconv]')
+        parser.add_argument('--model', type=str, default='tconv', help='type of compression model [cae | tconv | resnet]')
         parser.add_argument('--entropy_model', type=str, default='gsm', help='entropy model used for entropy (rate) loss')
         parser.add_argument('--quantization', type=str, default='round', help='type of quantization used during training [round | noise | none]')
         parser.add_argument('--loss', type=str, default='MSE', help='type of reconstruction loss to use')
         parser.add_argument('--coeff', type=float, default=1, help='determines the weight of reconstruction loss')
+        parser.add_argument('--scale', type=float, default=1, help='determines the initial range of variances in the GSM')
         parser.add_argument('--batch_size', type=int, default=32, help='input batch size')
         parser.add_argument('--gpu_id', type=int, default=0, help='gpu id')
         parser.add_argument('--epoch', type=str, default='best', help='epoch to continue training from. Load best model if set to \'best\'')
+        parser.add_argument('--classification', action='store_true', help='set when running task-aware compression or classification')
 
         # Dataset Parameters
         parser.add_argument('--max_dataset_size', type=int, default=float('inf'), help='max number of samples')
-        parser.add_argument('--crop_size', type=int, default=300, help='crop to this size')
+        parser.add_argument('--crop_size', type=int, default=128, help='crop to this size')
         parser.add_argument('--resize_size', type=int, default=128, help='then scale images to this size')
 
         # Misc Parameters

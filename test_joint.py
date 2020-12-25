@@ -10,14 +10,16 @@ import torch
 import torch.nn as nn
 import os
 import numpy as np
-from pytorch_msssim import ms_ssim as ms_ssim_function
 
 
 if __name__ == '__main__':
     opt = TestOptions().parse()
+    opt.classification = True
     train_dataset = create_dataset(opt, 'train')
     test_dataset = create_dataset(opt, 'test')
     dataset_size = len(test_dataset)
+
+    assert opt.model == 'joint', 'use another testing script'
 
     print('The number of testing images: {}'.format(min(dataset_size * opt.batch_size, opt.num_test)))
 
@@ -39,15 +41,17 @@ if __name__ == '__main__':
     min_code = range_coder.get_min_code()
 
     bpp_list = []
-    psnr_list = []
-    ms_ssim_list = []
 
     model.eval()
+    correct = 0
     for i, data in enumerate(test_dataset):
         if i >= opt.num_test:
             break
         model.set_input(data)
         model.test()
+
+        if torch.argmax(model.probs, dim=1) == model.label:
+            correct += 1
 
         image_util.save_images(i, img_dir, model.get_current_visuals())
 
@@ -65,26 +69,7 @@ if __name__ == '__main__':
 
         # Calculate Bitrate (bits per pixel)
         bpp = range_coder.get_bpp(i)
-
-        # Denormalize to 0 ~ 255
-        image = (model.image + 1) * 225 / 2 
-        recon = (model.recon + 1) * 225 / 2
-        
-        # Calculate MSE and MS-SSIM error
-        mse_function = nn.MSELoss()
-        mse = mse_function(image, recon)
-        psnr = 20 * np.log(255) / np.log(10) - 10 * torch.log(mse) / np.log(10)
-        ms_ssim = ms_ssim_function(image, recon, data_range=255, win_size=7)
-
         bpp_list.append(bpp)
-        psnr_list.append(psnr)
-        ms_ssim_list.append(ms_ssim)
 
-    results_msg = ''
-    results_msg += 'Average bpp: {}\n'.format(sum(bpp_list) / opt.num_test)
-    results_msg += 'Average PSNR: {}\n'.format(sum(psnr_list) / opt.num_test)
-    results_msg += 'Average MS-SSIM: {}\n\n'.format(sum(ms_ssim_list) / opt.num_test)
-
-    print(results_msg)
-    with open(os.path.join(results_dir, 'results.txt'), 'w') as f:
-        f.write(results_msg)
+    print('Average bpp: {}'.format(sum(bpp_list) / opt.num_test))
+    print(correct/opt.num_test)

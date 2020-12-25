@@ -42,11 +42,17 @@ class BaseDataset(data.Dataset, ABC):
         pass
 
 def get_transform(opt):
-    transform_list = transforms.Compose([
-        transforms.RandomCrop(opt.crop_size),
-        transforms.Resize(opt.resize_size),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
+    if not opt.classification:
+        transform_list = transforms.Compose([
+            transforms.RandomCrop(opt.crop_size),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+    else:
+        transform_list = transforms.Compose([
+            transforms.Resize((opt.crop_size, opt.crop_size)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
     return transform_list
     

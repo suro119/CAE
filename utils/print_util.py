@@ -1,7 +1,7 @@
 import os
 
-def print_losses(epoch, iters, losses, t_comp, t_data, opt):
-    message = '(epoch: %d, iters: %d, time: %.3f, data: %.3f) ' % (epoch, iters, t_comp, t_data)
+def print_losses(epoch, iters, losses, t_comp, t_data, lr, opt):
+    message = '(epoch: %d, iters: %d, time: %.3f, data: %.3f, lr: %.8f) ' % (epoch, iters, t_comp, t_data, lr)
     for k, v in losses.items():
         message += '%s: %.6f ' % (k, v)
 

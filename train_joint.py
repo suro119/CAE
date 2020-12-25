@@ -12,9 +12,13 @@ import os
 
 if __name__ == '__main__':
     opt = TrainOptions().parse()
+    opt.classification = True
+    opt.patience = 5
     dataset = create_dataset(opt, 'train')
     val_dataset = create_dataset(opt, 'val')
     dataset_size = len(dataset)
+
+    assert opt.model == 'joint', 'use another training script'
 
     print('The number of training images: {}'.format(dataset_size * opt.batch_size))
 
@@ -25,7 +29,7 @@ if __name__ == '__main__':
 
     total_iters = 0
     losses = model.get_val_losses(val_dataset)
-    best_val_loss = losses['entropy'] + opt.coeff * losses['recon']
+    best_val_loss = losses['entropy'] + opt.coeff * losses['cross_entropy']
     model.clear_val_losses()
 
     start_epoch = int(opt.epoch) if opt.epoch != 'best' else 1
@@ -53,7 +57,7 @@ if __name__ == '__main__':
                 losses = model.get_current_losses()
                 t_comp = (time.time() - iter_start_time) / opt.batch_size
                 lr = model.get_current_lr()
-                print_util.print_losses(epoch, epoch_iters, losses, t_comp, t_data, lr,opt)
+                print_util.print_losses(epoch, epoch_iters, losses, t_comp, t_data, lr, opt)
                 print(torch.mean(model.entropy_GSM.stds))
                 print(torch.std(model.code))
 
@@ -65,7 +69,7 @@ if __name__ == '__main__':
         val_loss = model.set_metric()
         model.update_learning_rate()
 
-        val_loss = losses['entropy'] + opt.coeff * losses['recon']
+        val_loss = losses['entropy'] + opt.coeff * losses['cross_entropy']
         # Save the model as 'best.pth' if we acheive lowest val_loss.
         # Otherwise, save as '{epoch}.pth' every 'opt.save_epoch_freq' epochs
         if val_loss < best_val_loss:

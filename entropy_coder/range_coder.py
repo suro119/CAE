@@ -21,8 +21,16 @@ class RangeCoder():
     def decode(self, length, test_num):
         decoder = RangeDecoder(os.path.join(self.codes_dir, str(test_num) + '.bin'))
         data = decoder.decode(length, self.cum_freq)
+        data = np.array(data)
         decoder.close()
         return data
+
+    def get_bpp(self, test_num, image_dim=(128,128)):
+        # Returns the bpp (bits per pixel) of the 'test_num'th test image
+        filename = os.path.join(self.codes_dir, str(test_num) + '.bin')
+        num_bytes = os.path.getsize(filename)
+        bpp = num_bytes * 8 / (image_dim[0] * image_dim[1])
+        return bpp
 
     def get_histogram(self, train_dataset, model, batch_size=32):
         ''' 
@@ -33,10 +41,14 @@ class RangeCoder():
         try:
             with open(self.histogram_path, 'rb') as f:
                 self.histogram_dict = pickle.load(f)
+            print('Loaded histogram')
         except:
+            print('Creating histrogram (will take 19200 iterations)')
             code_counter = Counter()
             model.eval()
             for i, data in enumerate(train_dataset):
+                if i > 600:  # use 19200 images to calculate histogram
+                    break
                 model.set_input(data)
                 model.test()
                 code = model.code.reshape(-1).cpu().numpy()  # B x 96 x 16 x 16
@@ -45,8 +57,8 @@ class RangeCoder():
                 if i % 20 == 0:
                     print('Iteration: {}'.format(i*batch_size))
 
-            min_code = min(code_counter.keys())
-            max_code = max(code_counter.keys())
+            min_code = int(min(code_counter.keys()))
+            max_code = int(max(code_counter.keys()))
 
             print('Min: {}, Max: {}'.format(min_code, max_code))
 

@@ -43,7 +43,8 @@ class BaseModel(ABC):
             self.load(opt.epoch, opt.override)
         self.print_networks(opt.verbose)
 
-        mkdir(self.save_dir)
+        if self.is_train:
+            mkdir(os.path.join(self.save_dir, opt.name))
 
     
     def train(self):
@@ -210,3 +211,6 @@ class BaseModel(ABC):
                 visual_ret[name] = getattr(self, name)
 
         return visual_ret
+
+    def get_current_lr(self):
+        return self.optimizers[0].param_groups[0]['lr']

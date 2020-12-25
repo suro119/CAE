@@ -19,6 +19,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--n_epochs', type=int, default=100, help='number of epochs with the initial learning rate')
         parser.add_argument('--lr', type=float, default=1e-4, help='initial learning rate')
         parser.add_argument('--lr_policy', type=str, default='plateau', help='learning rate policy. [linear | step | plateau | cosine]')
+        parser.add_argument('--patience', type=int, default=1, help='patience for lr_policy=plateau')
         parser.add_argument('--incremental', action='store_true', help='if set, perform incremental training')
 
         # Parameters for lr_policy == 'plateau' only

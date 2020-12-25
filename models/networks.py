@@ -43,7 +43,13 @@ def get_network(model, init_type='kaiming', init_gain=0.02, gpu_id=None, increme
     if model == 'cae':
         net = CompressiveAutoencoder(gpu_id, incremental, quantization)
     elif model == 'tconv':
-        net = TransposeConvAutoencoder(gpu_id, quantization)
+        net = TransposeConvAutoencoder(gpu_id, incremental, quantization)
+    elif model == 'resnet':
+        #net = Resnet34([3,4,6,3])
+        net = Resnet34([2,2,2,2])
+    elif model == 'joint':
+        net = [TransposeConvAutoencoder(gpu_id, incremental, quantization), Resnet34([2,2,2,2])]
+        return init_net(net[0], init_type, init_gain, gpu_id), init_net(net[1], init_type, init_gain, gpu_id)
     else:
         raise NotImplementedError('Model name \'{}\' not implemented'.format(model))
     return init_net(net, init_type, init_gain, gpu_id)
@@ -51,7 +57,7 @@ def get_network(model, init_type='kaiming', init_gain=0.02, gpu_id=None, increme
 
 def get_scheduler(optimizer, opt):
     if opt.lr_policy == 'plateau':
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=1, verbose=False, min_lr=opt.min_lr)
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=opt.patience, verbose=False, min_lr=opt.min_lr)
     else:
         raise NotImplementedError('Learning rate policy \'{}\' not implemented'.format(opt.lr_policy))
     return scheduler
@@ -64,8 +70,62 @@ def get_recon_loss(name):
         raise NotImplementedError('Loss function \'{}\' not implemented'.format(name))
 
 
+class ResBlock34(nn.Module):
+    def __init__(self, in_c, out_c, stride=1):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_c, out_c, kernel_size=3, stride=stride, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_c)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(out_c, out_c, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_c)
+        self.stride = stride
+        self.downsample = nn.Conv2d(in_c, out_c, kernel_size=1, stride=2)
+
+    def forward(self, x):
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        if self.stride != 1:
+            x = self.downsample(x)
+        out = out + x
+        out = self.relu(out)
+        return out
+
+
+class Resnet34(nn.Module):
+    def __init__(self, num_layers_list):
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3)  # B, 64, 64, 64
+        self.maxpool = nn.MaxPool2d(3, stride=2)  # B, 64, 32, 32
+        self.resblock1 = self._make_layers(64, 64, num_layers_list[0])
+        self.resblock2 = self._make_layers(64, 128, num_layers_list[1], stride=2)
+        self.resblock3 = self._make_layers(128, 256, num_layers_list[2], stride=2)
+        self.resblock4 = self._make_layers(256, 512, num_layers_list[3], stride=2)
+        self.avgpool = nn.AvgPool2d(4)  # B, 512, 1, 1
+        self.fc = nn.Linear(512, 5)
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, x):
+        out = self.maxpool(self.conv1(x))
+        out = self.resblock1(out)
+        out = self.resblock2(out)
+        out = self.resblock3(out)
+        out = self.resblock4(out)
+        out = self.avgpool(out)
+        out = out.view(out.size(0), -1)
+        out = self.fc(out)
+        out = self.softmax(out)
+        return out
+
+    def _make_layers(self, in_c, out_c, num_layers, stride=1):
+        layers = []
+        layers += [ResBlock34(in_c, out_c, stride=stride)]
+        layers += [ResBlock34(out_c, out_c) for i in range(num_layers-1)]
+
+        return nn.Sequential(*layers)
+        
+
 class TransposeConvAutoencoder(nn.Module):
-    def __init__(self, gpu_id, quantization):
+    def __init__(self, gpu_id, incremental, quantization):
         super().__init__()
         self.downsample1 = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=4, stride=2),
@@ -96,6 +156,14 @@ class TransposeConvAutoencoder(nn.Module):
         )
         self.clamp = Clamp()
 
+        self.incremental = incremental
+        if self.incremental:
+            self.iters = 0
+            self.update_freq = 64
+            self.mask = torch.zeros(1, 96, 16, 16).to(gpu_id)
+            self.mask.view(-1)[0] = 1
+            self.mask_idx = 0
+
     def forward(self, x):
 
         x = F.pad(x, (7, 7, 7, 7), 'reflect')
@@ -105,6 +173,14 @@ class TransposeConvAutoencoder(nn.Module):
         out = self.downsample2(out)
 
         code = self.quantize(out)
+
+        # Masking for incremental training
+        if self.incremental and self.iters % self.update_freq == 0 and self.mask_idx < 96*16*16:
+            self.update_mask()
+            code = self.mask * code
+
+        if self.incremental:
+            self.iters += x.size(0)
     
         out = self.upsample1(code)
         out = self.dec_res(out)
@@ -116,6 +192,10 @@ class TransposeConvAutoencoder(nn.Module):
         out = out[self.unpad_mask].reshape(x.size(0),3,128,128)
 
         return {'recon': out, 'code': code}
+
+    def update_mask(self):
+        self.mask_idx += 1
+        self.mask.view(-1)[self.mask_idx] = 1
 
 
 
