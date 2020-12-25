@@ -19,14 +19,14 @@ if __name__ == '__main__':
     test_dataset = create_dataset(opt, 'test')
     dataset_size = len(test_dataset)
 
-    assert opt.model == 'joint', 'use another testing script'
+    assert opt.model == 'joint', 'use another testing script or change --model'
 
     print('The number of testing images: {}'.format(min(dataset_size * opt.batch_size, opt.num_test)))
 
     model = create_model(opt)
     model.setup(opt)
 
-    results_dir = os.path.join(opt.results_dir, opt.name)
+    results_dir = os.path.join(opt.results_dir, opt.name, opt.epoch)
     img_dir = os.path.join(results_dir, 'images')
     codes_dir = os.path.join(results_dir, 'codes')
     misc_util.mkdir(results_dir)
@@ -71,5 +71,13 @@ if __name__ == '__main__':
         bpp = range_coder.get_bpp(i)
         bpp_list.append(bpp)
 
-    print('Average bpp: {}'.format(sum(bpp_list) / opt.num_test))
-    print(correct/opt.num_test)
+    average_bpp = sum(bpp_list) / opt.num_test
+    accuracy = correct/opt.num_test
+
+    results_msg = '(Epoch: {})\n'.format(opt.epoch)
+    results_msg += 'Average bpp: {}\n'.format(average_bpp)
+    results_msg += 'Accuracy: {}\n'.format(accuracy)
+
+    print(results_msg)
+    with open(os.path.join(results_dir, 'results.txt'), 'w') as f:
+        f.write(results_msg)

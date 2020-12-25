@@ -18,7 +18,7 @@ if __name__ == '__main__':
     val_dataset = create_dataset(opt, 'val')
     dataset_size = len(dataset)
 
-    assert opt.model == 'resnet', 'use another testing script'
+    assert opt.model == 'resnet', 'use another testing script or change --model'
 
     print('The number of training images: {}'.format(dataset_size * opt.batch_size))
 

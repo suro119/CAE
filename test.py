@@ -24,7 +24,7 @@ if __name__ == '__main__':
     model = create_model(opt)
     model.setup(opt)
 
-    results_dir = os.path.join(opt.results_dir, opt.name)
+    results_dir = os.path.join(opt.results_dir, opt.name, opt.epoch)
     img_dir = os.path.join(results_dir, 'images')
     codes_dir = os.path.join(results_dir, 'codes')
     misc_util.mkdir(results_dir)
@@ -80,7 +80,7 @@ if __name__ == '__main__':
         psnr_list.append(psnr)
         ms_ssim_list.append(ms_ssim)
 
-    results_msg = ''
+    results_msg = '(Epoch: {})\n'.format(opt.epoch)
     results_msg += 'Average bpp: {}\n'.format(sum(bpp_list) / opt.num_test)
     results_msg += 'Average PSNR: {}\n'.format(sum(psnr_list) / opt.num_test)
     results_msg += 'Average MS-SSIM: {}\n\n'.format(sum(ms_ssim_list) / opt.num_test)

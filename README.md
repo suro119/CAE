@@ -1,3 +1,3 @@
-# Lossy Image Compression with Compressive Autoencoders
+# Task-Aware and Content-Aware Variable Rate Image Compression using Compressive Autoencoders
 
 

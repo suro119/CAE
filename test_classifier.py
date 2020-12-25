@@ -18,14 +18,14 @@ if __name__ == '__main__':
     test_dataset = create_dataset(opt, 'test')
     dataset_size = len(test_dataset)
 
-    assert opt.model == 'resnet', 'use another testing script'
+    assert opt.model == 'resnet', 'use another testing script or change --model'
 
     print('The number of testing images: {}'.format(min(dataset_size * opt.batch_size, opt.num_test)))
 
     model = create_model(opt)
     model.setup(opt)
 
-    results_dir = os.path.join(opt.results_dir, opt.name)
+    results_dir = os.path.join(opt.results_dir, opt.name, opt.epoch)
     misc_util.mkdir(results_dir)
 
     model.eval()
@@ -39,4 +39,9 @@ if __name__ == '__main__':
         if torch.argmax(model.probs, dim=1) == model.label:
             correct += 1
 
-    print(correct/opt.num_test)
+    accuracy = correct/opt.num_test
+    results_msg = '(Epoch: {})\nAccuracy: {}\n'.format(opt.epoch, accuracy)
+
+    print(results_msg)
+    with open(os.path.join(results_dir, 'results.txt'), 'w') as f:
+        f.write(results_msg)
