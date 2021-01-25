@@ -44,7 +44,7 @@ class BaseModel(ABC):
         self.print_networks(opt.verbose)
 
         if self.is_train:
-            mkdir(os.path.join(self.save_dir, opt.name))
+            mkdir(self.save_dir)
 
     
     def train(self):
@@ -73,7 +73,7 @@ class BaseModel(ABC):
 
         new_lr = self.optimizers[0].param_groups[0]['lr']
         if new_lr < old_lr:
-            message = 'learning rate updated from {:.7f} to: {:.7f}'.format(old_lr, new_lr)
+            message = 'learning rate updated from {:.7f} to {:.7f}'.format(old_lr, new_lr)
             print(message)
             log_name = os.path.join(self.opt.checkpoint_dir, self.opt.name, 'loss_log.txt')
             with open(log_name, 'a') as log_file:
@@ -129,7 +129,7 @@ class BaseModel(ABC):
         for name in self.net_names:
             if isinstance(name, str):
                 net = getattr(self, 'net_' + name)
-                key = 'model_state_dict_%s' + name
+                key = 'model_state_dict_%s' + name  ## SHOULD BE % name
                 checkpoint[key] = net.state_dict()
 
         # Save optimizers

@@ -75,15 +75,18 @@ class ResBlock34(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(in_c, out_c, kernel_size=3, stride=stride, padding=1)
         self.bn1 = nn.BatchNorm2d(out_c)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(out_c, out_c, kernel_size=3, padding=1)
         self.bn2 = nn.BatchNorm2d(out_c)
         self.stride = stride
         self.downsample = nn.Conv2d(in_c, out_c, kernel_size=1, stride=2)
 
     def forward(self, x):
-        out = self.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
         if self.stride != 1:
             x = self.downsample(x)
         out = out + x
@@ -185,7 +188,7 @@ class TransposeConvAutoencoder(nn.Module):
         out = self.upsample1(code)
         out = self.dec_res(out)
         out = self.upsample2(out)
-        out = self.clamp(out)
+        #out = self.clamp(out)
 
         self.unpad_mask = torch.ones(x.size(0), 3, 128, 128)
         self.unpad_mask = F.pad(self.unpad_mask, (7,7,7,7)).bool()
@@ -274,6 +277,7 @@ class ResBlock(nn.Module):
             nn.Conv2d(c, c, kernel_size=3, padding=1),
             nn.LeakyReLU(),
             nn.Conv2d(c, c, kernel_size=3, padding=1)
+            # Maybe a ReLU here?
         )
 
     def forward(self, x):
@@ -285,14 +289,15 @@ class SubPix(nn.Module):
     def __init__(self, in_c, out_c, upsampling_factor=2):
         super().__init__()
         self.conv = nn.Conv2d(in_c, out_c, kernel_size=3, padding=1)
-        self.upsampling_factor = upsampling_factor
+        self.subpix = nn.PixelShuffle(upsampling_factor)
 
     def forward(self, x):
         out = self.conv(x)
+        out = self.subpix(out)
 
-        new_c = out.size(1) // self.upsampling_factor**2
-        new_dim = out.size(2) * self.upsampling_factor
-        out = out.view(x.size(0), new_c, new_dim, new_dim)  # Upsampling
+        # new_c = out.size(1) // self.upsampling_factor**2
+        # new_dim = out.size(2) * self.upsampling_factor
+        # out = out.view(x.size(0), new_c, new_dim, new_dim)  # Upsampling
         return out
 
 

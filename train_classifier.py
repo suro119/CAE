@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     total_iters = 0
     losses = model.get_val_losses(val_dataset)
-    best_val_loss = losses['cross_entropy']
+    best_val_loss = model.set_metric()
     model.clear_val_losses()
 
     start_epoch = int(opt.epoch) if opt.epoch != 'best' else 1
@@ -59,10 +59,9 @@ if __name__ == '__main__':
         # Update learning rate at the end of every epoch
         losses = model.get_val_losses(val_dataset)
         print_util.print_val_losses(epoch, losses, opt)
-        model.set_metric()
+        val_loss = model.set_metric()
         model.update_learning_rate()
 
-        val_loss = losses['cross_entropy']  # should change to losses['recon'] + opt.coeff * losses['entropy']
         # Save the model as 'best.pth' if we acheive lowest val_loss.
         # Otherwise, save as '{epoch}.pth' every 'opt.save_epoch_freq' epochs
         if val_loss < best_val_loss:

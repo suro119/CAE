@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from .base_model import BaseModel
 from . import networks
+from . import entropy_networks
 
 class CAEModel(BaseModel):
     def __init__(self, opt):
@@ -15,20 +16,21 @@ class CAEModel(BaseModel):
         self.net_CAE = networks.get_network(opt.model, gpu_id=self.gpu_id, quantization=opt.quantization)
 
         if self.is_train:
-            self.entropy_GSM = networks.get_entropy_model(opt.entropy_model, self.gpu_id)
+            self.entropy_GSM = entropy_networks.get_entropy_model(opt.entropy_model, self.gpu_id)
             self.optimizer = torch.optim.Adam(
                 list(self.net_CAE.parameters()) + list(self.entropy_GSM.parameters()),
                 lr=opt.lr
             )
             self.optimizers = [self.optimizer]
-            self.recon_loss_func = networks.get_recon_loss(opt.loss)
-            self.loss_recon = None
-            self.loss_entropy = None
-            self.coeff = opt.coeff
             self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
             if opt.lr_policy == 'plateau':
                 self.metric = None
                 self.val_losses = [[] for _ in range(len(self.loss_names))]
+
+        self.recon_loss_func = networks.get_recon_loss(opt.loss)
+        self.loss_recon = None
+        self.loss_entropy = None
+        self.coeff = opt.coeff
 
         self.image = None
         self.code = None
@@ -40,7 +42,7 @@ class CAEModel(BaseModel):
 
 
     def set_metric(self):
-        self.metric =   self.val_losses[0]
+        self.metric = self.val_losses[0]
         # self.metric = self.val_losses[1] + self.coeff * self.val_losses[0]
         return self.metric
 
@@ -48,7 +50,7 @@ class CAEModel(BaseModel):
     def forward(self):
         res_dict = self.net_CAE(self.image)
         self.recon = res_dict['recon']
-        #code = res_dict['code']
+        self.code = res_dict['code']
         self.loss_recon = self.recon_loss_func(self.image, self.recon)
         #self.loss_entropy = -self.entropy_GSM(code)  # Negative Log-likelihood
 

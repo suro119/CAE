@@ -43,8 +43,12 @@ class BaseDataset(data.Dataset, ABC):
 
 def get_transform(opt):
     if not opt.classification:
+        if opt.is_train:
+            crop = transforms.RandomCrop(opt.crop_size)
+        else:
+            crop = transforms.CenterCrop(opt.crop_size)
         transform_list = transforms.Compose([
-            transforms.RandomCrop(opt.crop_size),
+            crop,
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
